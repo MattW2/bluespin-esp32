@@ -1,7 +1,7 @@
 blueprint:
   name: "BlueSpin-esp32 — Sendspin Live Input & Two-Way Volume Sync"
   description: >
-    Tokenless companion blueprint for a BlueSpin-esp32 Bluetooth-to-Sendspin receiver.
+    Companion automation blueprint for a BlueSpin-esp32 Bluetooth-to-Sendspin receiver.
     Automatically plays the ESP32's Sendspin Live Input on your chosen Music Assistant
     speaker or sync group when a paired Bluetooth source (Google Nest Hub, phone, tablet)
     starts streaming, keeps the Bluetooth source's volume and speaker volume synchronized

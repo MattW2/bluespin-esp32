@@ -59,7 +59,7 @@ microphone:
     bt_a2dp_sink_id: bt
     task_stack_in_psram: true
 
-# Stock ESPHome Sendspin hub in source@v1 mode (tokenless permanent Noise pairing via 6-digit code)
+# Stock ESPHome Sendspin hub in source@v1 mode (Noise KKpsk2 pairing via 6-digit code)
 sendspin:
   id: ss
   manufacturer: "BlueSpin"
