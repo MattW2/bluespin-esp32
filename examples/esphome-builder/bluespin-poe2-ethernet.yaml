@@ -1,0 +1,78 @@
+# ESPHome Builder Configuration — Olimex ESP32-POE2 (Ethernet + PoE)
+#
+# Paste this entire file into Home Assistant -> ESPHome Device Builder -> + New Device -> Edit YAML.
+# Pulls the `bt_a2dp_sink` component and shared BlueSpin-esp32 entities directly from GitHub
+# (no manual file copying into /config/esphome/ needed).
+#
+# CAUTION (Olimex hardware note): ESP32-POE2 PoE is non-isolated. Disconnect the PoE Ethernet
+# cable before plugging USB-C into a computer for the initial flash, or use an isolated USB adapter.
+#
+# Required entries in ESPHome Builder -> Secrets (top-right button):
+#   api_encryption_key: "<32-byte base64 key>"
+#   ota_password: "your-ota-password"
+
+substitutions:
+  name: bluespin-esp32-poe2
+  friendly_name: BlueSpin ESP32 PoE
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.11.1
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/MattW2/bluespin-esp32
+      ref: main
+    components: [bt_a2dp_sink]
+    refresh: 1d
+
+packages:
+  base:
+    url: https://github.com/MattW2/bluespin-esp32
+    ref: main
+    files: [common/bluespin-base.yaml]
+    refresh: 1d
+
+ethernet:
+  type: LAN8720
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  power_pin: GPIO12
+  phy_addr: 0
+  clk:
+    pin: GPIO0
+    mode: CLK_OUT
+
+# Onboard BUT1 button (GPIO34) opens the pinless Bluetooth pairing window
+binary_sensor:
+  - platform: gpio
+    name: "BUT1 button (pair)"
+    internal: true
+    pin:
+      number: GPIO34
+      inverted: true
+      mode: INPUT
+    on_press:
+      - bt_a2dp_sink.start_pairing: bt
+
+text_sensor:
+  - platform: ethernet_info
+    ip_address:
+      name: "IP Address"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 6
+    mac_address:
+      name: "Ethernet MAC"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 7

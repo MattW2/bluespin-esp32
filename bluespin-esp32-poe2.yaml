@@ -1,0 +1,64 @@
+# Ethernet PoE configuration: Olimex ESP32-POE2 (ESP32-WROVER-E + LAN8710A/LAN8720)
+# Recommended for best audio stability: the 2.4 GHz radio handles Bluetooth exclusively.
+#
+# CAUTION (Olimex hardware note): ESP32-POE2 PoE is non-isolated. Disconnect the PoE Ethernet
+# cable before plugging USB-C into a PC, or use an isolated USB adapter, or flash via OTA.
+
+substitutions:
+  name: bluespin-esp32-poe2
+  friendly_name: BlueSpin ESP32 PoE
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [bt_a2dp_sink]
+
+packages:
+  base: !include common/bluespin-base.yaml
+
+ethernet:
+  type: LAN8720
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  power_pin: GPIO12
+  phy_addr: 0
+  clk:
+    pin: GPIO0
+    mode: CLK_OUT
+
+# Onboard BUT1 button (GPIO34) opens the pinless Bluetooth pairing window
+binary_sensor:
+  - platform: gpio
+    name: "BUT1 button (pair)"
+    internal: true
+    pin:
+      number: GPIO34
+      inverted: true
+      mode: INPUT
+    on_press:
+      - bt_a2dp_sink.start_pairing: bt
+
+text_sensor:
+  - platform: ethernet_info
+    ip_address:
+      name: "IP Address"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 6
+    mac_address:
+      name: "Ethernet MAC"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 7

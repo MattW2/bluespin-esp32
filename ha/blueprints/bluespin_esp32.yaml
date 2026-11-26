@@ -1,0 +1,224 @@
+blueprint:
+  name: "BlueSpin-esp32 — Sendspin Live Input & Two-Way Volume Sync"
+  description: >
+    Tokenless companion blueprint for a BlueSpin-esp32 Bluetooth-to-Sendspin receiver.
+    Automatically plays the ESP32's Sendspin Live Input on your chosen Music Assistant
+    speaker or sync group when a paired Bluetooth source (Google Nest Hub, phone, tablet)
+    starts streaming, keeps the Bluetooth source's volume and speaker volume synchronized
+    both ways (speaker wins on stream start, with echo suppression), and stops
+    playback on Bluetooth disconnect or after an extended pause.
+  domain: automation
+  source_url: https://github.com/MattW2/bluespin-esp32/blob/main/ha/blueprints/bluespin_esp32.yaml
+  input:
+    bt_connected:
+      name: Bluetooth Connected Binary Sensor
+      description: "The BlueSpin-esp32 'Phone connected' binary_sensor entity."
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+    bt_streaming:
+      name: Bluetooth Streaming Binary Sensor
+      description: "The BlueSpin-esp32 'Phone streaming' binary_sensor entity."
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+    phone_volume:
+      name: Phone / Source Volume Number
+      description: "The BlueSpin-esp32 writable 'Phone volume' number entity (0–100%)."
+      selector:
+        entity:
+          filter:
+            - domain: number
+    source_uri:
+      name: Sendspin Source URI Text Sensor
+      description: "The BlueSpin-esp32 'Sendspin source URI' text_sensor (publishes sendspin_source://audio_source/<client_id>)."
+      selector:
+        entity:
+          filter:
+            - domain: text_sensor
+            - domain: sensor
+    target_player:
+      name: Target Music Assistant Speaker / Group
+      description: "Music Assistant media_player entity (single speaker or MA sync group) to play the Bluetooth stream on."
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+    enable_auto_play:
+      name: Auto-Play When Bluetooth Stream Starts
+      description: "Automatically start the Sendspin Live Input on the target player when Bluetooth audio starts."
+      default: true
+      selector:
+        boolean: {}
+    enable_volume_sync:
+      name: Two-Way Volume Sync
+      description: "Sync volume both ways while streaming. Speaker volume wins when streaming begins so a source left at 100% never blasts the room."
+      default: true
+      selector:
+        boolean: {}
+    pause_hold_minutes:
+      name: Pause Hold Timeout (minutes)
+      description: "How long to keep the Live Input active on the speakers while Bluetooth audio is paused before stopping playback (0 disables pause timeout)."
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 1
+          unit_of_measurement: min
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+variables:
+  v_bt_connected: !input bt_connected
+  v_bt_streaming: !input bt_streaming
+  v_phone_volume: !input phone_volume
+  v_source_uri: !input source_uri
+  v_target_player: !input target_player
+  v_auto_play: !input enable_auto_play
+  v_vol_sync: !input enable_volume_sync
+  v_pause_min: !input pause_hold_minutes
+  uri_str: "{{ states(v_source_uri) | trim }}"
+  echo_tolerance_pct: 8
+
+triggers:
+  - id: stream_start
+    trigger: state
+    entity_id: !input bt_streaming
+    to: "on"
+
+  - id: bt_disconnect
+    trigger: state
+    entity_id: !input bt_connected
+    to: "off"
+
+  - id: pause_timeout
+    trigger: state
+    entity_id: !input bt_streaming
+    to: "off"
+    for:
+      minutes: !input pause_hold_minutes
+
+  - id: phone_vol_changed
+    trigger: state
+    entity_id: !input phone_volume
+
+  - id: speaker_vol_changed
+    trigger: state
+    entity_id: !input target_player
+    attribute: volume_level
+
+conditions: []
+
+actions:
+  - choose:
+      # 1. Bluetooth audio started -> push speaker volume to source ("speaker wins"), then auto-play Live Input
+      - conditions:
+          - condition: trigger
+            id: stream_start
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ v_vol_sync and state_attr(v_target_player, 'volume_level') is not none }}"
+            then:
+              - action: number.set_value
+                target:
+                  entity_id: !input phone_volume
+                data:
+                  value: "{{ (state_attr(v_target_player, 'volume_level') | float(0.5) * 100) | round(0) }}"
+          - if:
+              - condition: template
+                value_template: >
+                  {{ v_auto_play
+                     and uri_str.startswith('sendspin_source://')
+                     and (state_attr(v_target_player, 'media_content_id') | default('', true)) != uri_str
+                     and (state_attr(v_target_player, 'active_source') | default('', true)) != uri_str }}
+            then:
+              - action: music_assistant.play_media
+                target:
+                  entity_id: !input target_player
+                data:
+                  media_id: "{{ uri_str }}"
+                  enqueue: replace
+
+      # 2. Source (phone / Nest Hub) volume changed -> copy to speaker (ignoring echoes of speaker->phone writes)
+      - conditions:
+          - condition: trigger
+            id: phone_vol_changed
+          - condition: template
+            value_template: >
+              {% set streaming = is_state(v_bt_streaming, 'on') %}
+              {% set phone_pct = states(v_phone_volume) | float(-1) %}
+              {% set spk_lvl = state_attr(v_target_player, 'volume_level') %}
+              {% set spk_pct = (spk_lvl | float(0) * 100) if spk_lvl is not none else -100 %}
+              {{ v_vol_sync
+                 and streaming
+                 and phone_pct >= 0
+                 and spk_lvl is not none
+                 and (phone_pct - spk_pct) | abs > echo_tolerance_pct }}
+        sequence:
+          - action: media_player.volume_set
+            target:
+              entity_id: !input target_player
+            data:
+              volume_level: "{{ ([0.0, [1.0, (states(v_phone_volume) | float(0)) / 100.0] | min] | max) | round(2) }}"
+
+      # 3. Speaker volume changed in MA / HA -> copy to Bluetooth source (ignoring echoes of phone->speaker writes)
+      - conditions:
+          - condition: trigger
+            id: speaker_vol_changed
+          - condition: template
+            value_template: >
+              {% set streaming = is_state(v_bt_streaming, 'on') %}
+              {% set phone_pct = states(v_phone_volume) | float(-100) %}
+              {% set spk_lvl = state_attr(v_target_player, 'volume_level') %}
+              {% set spk_pct = (spk_lvl | float(0) * 100) | round(0) if spk_lvl is not none else -1 %}
+              {{ v_vol_sync
+                 and streaming
+                 and spk_pct >= 0
+                 and (spk_pct - phone_pct) | abs > echo_tolerance_pct }}
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input phone_volume
+            data:
+              value: "{{ (state_attr(v_target_player, 'volume_level') | float(0) * 100) | round(0) }}"
+
+      # 4. Bluetooth disconnected -> stop target speaker if it is playing our Live Input
+      - conditions:
+          - condition: trigger
+            id: bt_disconnect
+          - condition: template
+            value_template: >
+              {{ is_state(v_target_player, 'playing')
+                 and (
+                   (state_attr(v_target_player, 'media_content_id') | default('', true)) == uri_str
+                   or (state_attr(v_target_player, 'active_source') | default('', true)) == uri_str
+                   or uri_str == ''
+                 ) }}
+        sequence:
+          - action: media_player.media_stop
+            target:
+              entity_id: !input target_player
+
+      # 5. Bluetooth stream paused longer than pause_hold_minutes -> stop target speaker
+      - conditions:
+          - condition: trigger
+            id: pause_timeout
+          - condition: template
+            value_template: >
+              {{ (v_pause_min | int(10)) > 0
+                 and is_state(v_bt_streaming, 'off')
+                 and is_state(v_target_player, 'playing')
+                 and (
+                   (state_attr(v_target_player, 'media_content_id') | default('', true)) == uri_str
+                   or (state_attr(v_target_player, 'active_source') | default('', true)) == uri_str
+                 ) }}
+        sequence:
+          - action: media_player.media_stop
+            target:
+              entity_id: !input target_player

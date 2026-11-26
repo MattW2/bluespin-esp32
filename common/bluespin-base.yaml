@@ -1,0 +1,266 @@
+# Shared BlueSpin-esp32 package — included by both local CLI configs and ESPHome Builder GitHub configs.
+
+psram:
+  mode: quad
+  speed: 80MHz
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+  - platform: web_server
+
+debug:
+  update_interval: 15s
+
+# Lightweight offline-capable on-device dashboard & live debug log viewer at http://<device-ip>/
+web_server:
+  port: 80
+  version: 3
+  local: true
+  log: true
+  sorting_groups:
+    - id: grp_bt
+      name: "Bluetooth & Pairing"
+      sorting_weight: 10
+    - id: grp_audio
+      name: "Audio & Sendspin"
+      sorting_weight: 20
+    - id: grp_system
+      name: "System & Debug"
+      sorting_weight: 30
+
+# Bluetooth Classic A2DP Sink (pinless SSP Just Works, Loudspeaker CoD for Google Nest Hub & phones)
+bt_a2dp_sink:
+  id: bt
+  device_name: ${friendly_name}
+  pairing_window: 120s
+  max_bonded_devices: 8
+  takeover: true
+  buffer_duration: 300ms
+  on_stream_started:
+    - sendspin.source.set_signal:
+        id: ss
+        present: true
+  on_stream_stopped:
+    - sendspin.source.set_signal:
+        id: ss
+        present: false
+
+microphone:
+  - platform: bt_a2dp_sink
+    id: bt_mic
+    bt_a2dp_sink_id: bt
+    task_stack_in_psram: true
+
+# Stock ESPHome Sendspin hub in source@v1 mode (tokenless permanent Noise pairing via 6-digit code)
+sendspin:
+  id: ss
+  manufacturer: "BlueSpin"
+  model: "BlueSpin-esp32"
+  task_stack_in_psram: true
+  source:
+    task_stack_in_psram: true
+    microphone:
+      microphone: bt_mic
+      bits_per_sample: 16
+      channels: [0, 1]
+
+button:
+  - platform: bt_a2dp_sink
+    type: start_pairing
+    name: "Start Bluetooth pairing"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 1
+  - platform: bt_a2dp_sink
+    type: stop_pairing
+    name: "Stop Bluetooth pairing"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 2
+  - platform: bt_a2dp_sink
+    type: disconnect
+    name: "Disconnect phone"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 3
+  - platform: bt_a2dp_sink
+    type: reconnect_last
+    name: "Reconnect last phone"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 4
+  - platform: bt_a2dp_sink
+    type: forget_all
+    name: "Forget all phones"
+    entity_category: config
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 9
+  - platform: restart
+    name: "Restart ESP32"
+    entity_category: config
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 90
+
+switch:
+  - platform: bt_a2dp_sink
+    type: pairing_mode
+    name: "Bluetooth pairing mode"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 5
+  - platform: bt_a2dp_sink
+    type: allow_device_connect
+    name: "Allow phones to connect"
+    restore_mode: RESTORE_DEFAULT_ON
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 6
+  - platform: sendspin
+    type: unpaired_access
+    sendspin_id: ss
+    name: "Sendspin unpaired access"
+    restore_mode: RESTORE_DEFAULT_OFF
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 8
+
+number:
+  - platform: bt_a2dp_sink
+    type: phone_volume
+    name: "Phone volume"
+    mode: SLIDER
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 7
+
+binary_sensor:
+  - platform: bt_a2dp_sink
+    type: connected
+    name: "Phone connected"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 10
+  - platform: bt_a2dp_sink
+    type: streaming
+    name: "Phone streaming"
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 1
+  - platform: bt_a2dp_sink
+    type: pairing_mode
+    name: "Bluetooth pairing active"
+    entity_category: diagnostic
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 11
+
+text_sensor:
+  - platform: bt_a2dp_sink
+    type: device_name
+    name: "Connected phone"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 12
+  - platform: bt_a2dp_sink
+    type: device_address
+    name: "Connected phone MAC"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 13
+  - platform: bt_a2dp_sink
+    type: codec
+    name: "Bluetooth codec"
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 2
+  - platform: sendspin
+    type: pairing_code
+    sendspin_id: ss
+    name: "Music Assistant pairing code"
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 3
+  - platform: template
+    name: "Sendspin source URI"
+    icon: "mdi:link-variant"
+    entity_category: diagnostic
+    update_interval: 30s
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 4
+    lambda: |-
+      auto cid = id(ss).get_client_id();
+      if (cid.empty()) {
+        return {};
+      }
+      return std::string("sendspin_source://audio_source/") + std::string(cid.c_str(), cid.size());
+  - platform: version
+    name: "Firmware version"
+    hide_timestamp: false
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 10
+  - platform: debug
+    reset_reason:
+      name: "Reset reason"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 11
+
+sensor:
+  - platform: bt_a2dp_sink
+    type: paired_devices
+    name: "Paired phones"
+    web_server:
+      sorting_group_id: grp_bt
+      sorting_weight: 14
+  - platform: bt_a2dp_sink
+    type: buffer_fill
+    name: "Audio buffer fill"
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 5
+  - platform: bt_a2dp_sink
+    type: underruns
+    name: "Audio underruns"
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 6
+  - platform: bt_a2dp_sink
+    type: overflows
+    name: "Audio overflows"
+    web_server:
+      sorting_group_id: grp_audio
+      sorting_weight: 7
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 1
+  - platform: debug
+    free:
+      name: "Free Internal RAM"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 2
+    psram:
+      name: "Free PSRAM"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 3
+    block:
+      name: "Max Free Block"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 4

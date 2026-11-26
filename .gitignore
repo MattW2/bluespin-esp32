@@ -1,0 +1,10 @@
+# Virtual environments & build artifacts
+.venv/
+.venv312/
+.esphome/
+build/
+__pycache__/
+*.pyc
+
+# Local secrets (never commit real credentials)
+secrets.yaml
