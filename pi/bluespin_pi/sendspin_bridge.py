@@ -13,6 +13,7 @@ from aiosendspin.client import ClientListener, PairingSupport, SendspinClient, S
 import aiosendspin.client.connection as _ss_conn
 from aiosendspin.models.core import ServerCommandPayload
 from aiosendspin.models.player import SupportedAudioFormat
+from aiosendspin.models.source import ClientHelloSourceFeatures, ClientHelloSourceSupport
 from aiosendspin.models.types import AudioCodec, GoodbyeReason, Roles, SignalState
 from aiosendspin.noise import FileClientPairingStore, Identity, b64url_decode
 
@@ -24,6 +25,23 @@ logger = logging.getLogger(__name__)
 # relax aiosendspin 11.0.0's strict regex so older servers can stay connected.
 if hasattr(_ss_conn, "_GROUP_ID_RE"):
     _ss_conn._GROUP_ID_RE = re.compile(r".+")
+
+# Music Assistant 2.10.x requires source@v1_support in client/hello to activate
+# the source@v1 role (aiosendspin 11.0.0 removed it per spec-pr-335).
+if hasattr(_ss_conn, "SendspinConnection") and hasattr(
+    _ss_conn.SendspinConnection, "_build_client_hello"
+):
+    _orig_build_client_hello = _ss_conn.SendspinConnection._build_client_hello
+
+    async def _compat_build_client_hello(self: object):  # type: ignore[no-untyped-def]
+        msg = await _orig_build_client_hello(self)
+        if Roles.SOURCE in self._client.roles and msg.payload.source_support is None:  # type: ignore[attr-defined]
+            msg.payload.source_support = ClientHelloSourceSupport(
+                features=ClientHelloSourceFeatures(line_sense=True)
+            )
+        return msg
+
+    _ss_conn.SendspinConnection._build_client_hello = _compat_build_client_hello  # type: ignore[method-assign]
 
 _CODEC_MAP = {
     "opus": AudioCodec.OPUS,

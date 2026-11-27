@@ -12,6 +12,7 @@ EnvironmentFile=-/etc/bluespin/bluespin.env
 ExecStart=/opt/bluespin/venv/bin/python -m bluespin_pi
 Restart=always
 RestartSec=3
+TimeoutStopSec=5
 StandardOutput=journal
 StandardError=journal
 

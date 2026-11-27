@@ -99,7 +99,8 @@ if id "${SERVICE_USER}" >/dev/null 2>&1; then
   usermod -aG bluetooth,audio,i2c "${SERVICE_USER}" 2>/dev/null || true
   systemctl start "user@${SERVICE_UID}.service" || true
   systemctl --user -M "${SERVICE_USER}@" daemon-reload || true
-  systemctl --user -M "${SERVICE_USER}@" restart pipewire.socket pipewire-pulse.socket pipewire.service pipewire-pulse.service wireplumber.service || true
+  systemctl --user -M "${SERVICE_USER}@" start pipewire.socket pipewire-pulse.socket pipewire.service pipewire-pulse.service || true
+  systemctl --user -M "${SERVICE_USER}@" restart wireplumber.service || true
 else
   SERVICE_USER="root"
   SERVICE_UID="0"
