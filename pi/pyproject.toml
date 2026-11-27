@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bluespin-pi"
+version = "0.1.0"
+description = "Bluetooth A2DP Sink to Sendspin Source bridge for Raspberry Pi 3B"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiosendspin[source]>=11.0.0",
+    "aiohttp>=3.11.0",
+    "dbus-fast>=2.24.0; platform_system == 'Linux'",
+    "Pillow>=11.0.0",
+    "luma.oled>=3.13.0; platform_system == 'Linux'",
+    "smbus2>=0.5.0; platform_system == 'Linux'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+bluespin-pi = "bluespin_pi.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bluespin_pi*"]
