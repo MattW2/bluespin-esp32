@@ -1,0 +1,96 @@
+# ESPHome Builder Configuration — ESP32-WROVER (Wi-Fi) + SSD1306 128x64 OLED
+#
+# Paste this entire file into Home Assistant -> ESPHome Device Builder -> + New Device -> Edit YAML.
+# Pulls the `bt_a2dp_sink` component, shared BlueSpin-esp32 entities, and the SSD1306 OLED
+# display package directly from GitHub.
+#
+# Default I2C pins: SDA=GPIO21, SCL=GPIO22 (override via `oled_sda` / `oled_scl` substitutions).
+#
+# Required entries in ESPHome Builder -> Secrets (top-right button):
+#   wifi_ssid: "YourWiFiSSID"
+#   wifi_password: "YourWiFiPassword"
+#   api_encryption_key: "<32-byte base64 key>"
+#   ota_password: "your-ota-password"
+#   ap_fallback_password: "your-fallback-ap-password"
+
+substitutions:
+  name: bluespin-esp32
+  friendly_name: BlueSpin ESP32
+  oled_sda: GPIO21
+  oled_scl: GPIO22
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.11.1
+
+esp32:
+  board: esp-wrover-kit
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/MattW2/bluespin-esp32
+      ref: main
+    components: [bt_a2dp_sink]
+    refresh: 1d
+
+packages:
+  base:
+    url: https://github.com/MattW2/bluespin-esp32
+    ref: main
+    files:
+      - common/bluespin-base.yaml
+      - common/bluespin-oled-ssd1306.yaml
+    refresh: 1d
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Disable Wi-Fi power saving for consistent Bluetooth + Sendspin streaming latency
+  power_save_mode: none
+  ap:
+    ssid: "${friendly_name} Setup"
+    password: !secret ap_fallback_password
+
+captive_portal:
+
+# Optional physical BOOT button (GPIO0) opens the pinless Bluetooth pairing window
+binary_sensor:
+  - platform: gpio
+    name: "Boot button (pair)"
+    internal: true
+    pin:
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_press:
+      - bt_a2dp_sink.start_pairing: bt
+
+sensor:
+  - platform: wifi_signal
+    name: "Wi-Fi Signal"
+    update_interval: 30s
+    entity_category: diagnostic
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 5
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 6
+    ssid:
+      name: "Connected SSID"
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 7

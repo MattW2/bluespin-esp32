@@ -136,6 +136,7 @@ switch:
 
 number:
   - platform: bt_a2dp_sink
+    id: bt_phone_volume
     type: phone_volume
     name: "Phone volume"
     mode: SLIDER
@@ -145,18 +146,21 @@ number:
 
 binary_sensor:
   - platform: bt_a2dp_sink
+    id: bt_connected
     type: connected
     name: "Phone connected"
     web_server:
       sorting_group_id: grp_bt
       sorting_weight: 10
   - platform: bt_a2dp_sink
+    id: bt_streaming
     type: streaming
     name: "Phone streaming"
     web_server:
       sorting_group_id: grp_audio
       sorting_weight: 1
   - platform: bt_a2dp_sink
+    id: bt_pairing_active
     type: pairing_mode
     name: "Bluetooth pairing active"
     entity_category: diagnostic
@@ -166,6 +170,7 @@ binary_sensor:
 
 text_sensor:
   - platform: bt_a2dp_sink
+    id: bt_device_name
     type: device_name
     name: "Connected phone"
     web_server:
@@ -178,12 +183,14 @@ text_sensor:
       sorting_group_id: grp_bt
       sorting_weight: 13
   - platform: bt_a2dp_sink
+    id: bt_codec
     type: codec
     name: "Bluetooth codec"
     web_server:
       sorting_group_id: grp_audio
       sorting_weight: 2
   - platform: sendspin
+    id: ss_pairing_code
     type: pairing_code
     sendspin_id: ss
     name: "Music Assistant pairing code"
@@ -225,18 +232,21 @@ sensor:
       sorting_group_id: grp_bt
       sorting_weight: 14
   - platform: bt_a2dp_sink
+    id: bt_buffer_fill
     type: buffer_fill
     name: "Audio buffer fill"
     web_server:
       sorting_group_id: grp_audio
       sorting_weight: 5
   - platform: bt_a2dp_sink
+    id: bt_underruns
     type: underruns
     name: "Audio underruns"
     web_server:
       sorting_group_id: grp_audio
       sorting_weight: 6
   - platform: bt_a2dp_sink
+    id: bt_overflows
     type: overflows
     name: "Audio overflows"
     web_server:

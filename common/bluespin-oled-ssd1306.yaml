@@ -1,0 +1,101 @@
+# Optional SSD1306 128x64 I2C OLED display package for BlueSpin-esp32.
+#
+# Include alongside `common/bluespin-base.yaml` on boards with an SSD1306 OLED wired to I2C
+# (default GPIO21 SDA / GPIO22 SCL, override via `oled_sda` / `oled_scl` substitutions).
+# Note: Do not use on Olimex ESP32-POE2 where GPIO21/GPIO22 are Ethernet RMII pins.
+
+substitutions:
+  oled_sda: GPIO21
+  oled_scl: GPIO22
+
+i2c:
+  sda: ${oled_sda}
+  scl: ${oled_scl}
+  # 800 kHz cuts I2C frame transmission time in half for snappy, low-overhead refreshes.
+  frequency: 800kHz
+
+font:
+  - file: "gfonts://Roboto"
+    id: oled_font_sm
+    size: 10
+  - file: "gfonts://Roboto@500"
+    id: oled_font_md
+    size: 12
+  - file: "gfonts://Roboto@700"
+    id: oled_font_lg
+    size: 22
+
+display:
+  - platform: ssd1306_i2c
+    id: oled_display
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 1s
+    lambda: |-
+      // Priority 1: Show 6-digit Music Assistant Sendspin pairing code when active
+      if (id(ss_pairing_code).has_state() && !id(ss_pairing_code).state.empty()) {
+        it.print(64, 4, id(oled_font_md), TextAlign::TOP_CENTER, "MA PAIRING CODE");
+        it.line(8, 20, 120, 20);
+        it.printf(64, 28, id(oled_font_lg), TextAlign::TOP_CENTER, "%s", id(ss_pairing_code).state.c_str());
+        return;
+      }
+
+      // Priority 2: Show Bluetooth pairing window banner when open
+      if (id(bt).is_pairing_open()) {
+        it.print(64, 4, id(oled_font_md), TextAlign::TOP_CENTER, "BT PAIRING OPEN");
+        it.line(8, 20, 120, 20);
+        it.printf(64, 26, id(oled_font_sm), TextAlign::TOP_CENTER, "%s", App.get_friendly_name().c_str());
+        it.print(64, 44, id(oled_font_sm), TextAlign::TOP_CENTER, "Pinless (Just Works)");
+        return;
+      }
+
+      // Top bar: title + IP address
+      it.print(0, 0, id(oled_font_sm), "BlueSpin");
+      char ip_buf[network::IP_ADDRESS_BUFFER_SIZE];
+      const char *ip_str = network::is_connected() ? "Online" : "No Net";
+      for (const auto &ip : network::get_ip_addresses()) {
+        if (ip.is_set() && ip.is_ip4()) {
+          ip.str_to(ip_buf);
+          ip_str = ip_buf;
+          break;
+        }
+      }
+      it.printf(127, 0, id(oled_font_sm), TextAlign::TOP_RIGHT, "%s", ip_str);
+      it.line(0, 13, 127, 13);
+
+      // Line 2: Connected Bluetooth source
+      if (id(bt).is_connected()) {
+        std::string dev = id(bt_device_name).has_state() ? id(bt_device_name).state : "Connected";
+        if (dev.size() > 19) {
+          dev = dev.substr(0, 16) + "...";
+        }
+        it.printf(0, 16, id(oled_font_md), "BT: %s", dev.c_str());
+
+        const char *play_lbl = id(bt).is_streaming() ? "PLAY" : "IDLE";
+        const int vol = id(bt_phone_volume).has_state() ? static_cast<int>(id(bt_phone_volume).state) : 0;
+        it.printf(0, 32, id(oled_font_sm), "%s  Vol: %d%%", play_lbl, vol);
+      } else {
+        it.print(0, 16, id(oled_font_md), "BT: Waiting...");
+        it.print(0, 32, id(oled_font_sm), "Ready to connect");
+      }
+
+      // Bottom status: codec + Sendspin state + buffer fill bar
+      const char *ss_lbl = !id(ss).is_client_running()
+                               ? "SS:INIT"
+                               : (id(ss).is_source_streaming() ? "SS:LIVE" : "SS:IDLE");
+      std::string codec = (id(bt_codec).has_state() && id(bt).is_connected()) ? id(bt_codec).state : "SBC";
+      if (codec.size() > 11) {
+        codec = codec.substr(0, 11);
+      }
+      it.printf(0, 45, id(oled_font_sm), "%s", codec.c_str());
+      it.printf(127, 45, id(oled_font_sm), TextAlign::TOP_RIGHT, "%s", ss_lbl);
+
+      // Audio ring buffer fill bar (y = 58..63)
+      float fill = id(bt_buffer_fill).has_state() ? id(bt_buffer_fill).state : 0.0f;
+      if (fill < 0.0f) fill = 0.0f;
+      if (fill > 100.0f) fill = 100.0f;
+      it.rectangle(0, 58, 128, 6);
+      int bar_w = static_cast<int>((fill / 100.0f) * 124.0f);
+      if (bar_w > 0) {
+        it.filled_rectangle(2, 60, bar_w, 2);
+      }

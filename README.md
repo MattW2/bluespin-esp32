@@ -30,6 +30,7 @@ Bluetooth A2DP uses **Bluetooth Classic (BR/EDR)**, which is provided by origina
 | Board | PSRAM | Network | ESPHome Builder Example | Local CLI Config | Notes |
 |---|---|---|---|---|---|
 | **ESP32-WROVER-E / -IE DevKit** *(primary Wi-Fi)* | 4–8 MB | Wi-Fi | [`examples/esphome-builder/bluespin-wrover-wifi.yaml`](examples/esphome-builder/bluespin-wrover-wifi.yaml) | [`bluespin-esp32-wrover.yaml`](bluespin-esp32-wrover.yaml) | `-IE` with an external u.FL antenna improves 2.4 GHz Wi-Fi + BT coexistence. |
+| **ESP32-WROVER + SSD1306 128×64 OLED** | 4–8 MB | Wi-Fi | [`examples/esphome-builder/bluespin-wrover-wifi-oled.yaml`](examples/esphome-builder/bluespin-wrover-wifi-oled.yaml) | Include `common/bluespin-oled-ssd1306.yaml` | Shows IP, BT device, volume, Sendspin status, buffer bar, and pairing codes on I2C (`GPIO21`/`GPIO22`). |
 | **Olimex ESP32-POE2** *(recommended for wired setups)* | 8 MB | Ethernet + PoE | [`examples/esphome-builder/bluespin-poe2-ethernet.yaml`](examples/esphome-builder/bluespin-poe2-ethernet.yaml) | [`bluespin-esp32-poe2.yaml`](bluespin-esp32-poe2.yaml) | Wired Ethernet dedicates the 2.4 GHz radio exclusively to Bluetooth. |
 | **Olimex ESP32-Gateway (Rev F+)** | 4 MB (WROVER) | Ethernet | Adapt `bluespin-poe2-ethernet.yaml` | Adapt `bluespin-esp32-poe2.yaml` | Match Ethernet PHY clock/power pins to your board revision. |
 | **ESP32-A1S AudioKit / LilyGO TTGO T8 / T-Audio** | 4–8 MB | Wi-Fi | [`examples/esphome-builder/bluespin-wrover-wifi.yaml`](examples/esphome-builder/bluespin-wrover-wifi.yaml) | [`bluespin-esp32-wrover.yaml`](bluespin-esp32-wrover.yaml) | WROVER-class ESP32 module with 4–8 MB PSRAM. |
@@ -62,6 +63,7 @@ Deploy and OTA-manage one or more BlueSpin-esp32 receivers directly from **Home 
 2. Enter a name (for example `BlueSpin Living Room`), select **ESP32**, and open **Edit** on the device card.
 3. Replace the YAML contents with one of the templates in [`examples/esphome-builder/`](examples/esphome-builder/):
    - **Wi-Fi (ESP32-WROVER):** [`examples/esphome-builder/bluespin-wrover-wifi.yaml`](examples/esphome-builder/bluespin-wrover-wifi.yaml)
+   - **Wi-Fi (ESP32-WROVER + SSD1306 OLED):** [`examples/esphome-builder/bluespin-wrover-wifi-oled.yaml`](examples/esphome-builder/bluespin-wrover-wifi-oled.yaml)
    - **Ethernet + PoE (Olimex ESP32-POE2):** [`examples/esphome-builder/bluespin-poe2-ethernet.yaml`](examples/esphome-builder/bluespin-poe2-ethernet.yaml)
 4. Customize `substitutions.name` and `substitutions.friendly_name` at the top when deploying multiple rooms (e.g., `bluespin-kitchen` / `BlueSpin Kitchen`).
 
