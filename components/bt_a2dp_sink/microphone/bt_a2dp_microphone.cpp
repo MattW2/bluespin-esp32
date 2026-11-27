@@ -100,8 +100,9 @@ void BtA2dpMicrophone::capture_task_loop_() {
   auto &ring = this->parent_->ring();
   const size_t high_watermark = std::max<size_t>(this->parent_->target_buffer_bytes() * 2U, kChunkBytes * 4U);
 
-  // Brief pre-roll (up to 60 ms) if Bluetooth is actively streaming so we don't underrun on the very first frame.
-  for (int i = 0; i < 6 && !this->stop_requested_.load(std::memory_order_acquire); ++i) {
+  // Pre-roll up to 250 ms (half of target buffer) if Bluetooth is actively streaming so
+  // 2.4 GHz Wi-Fi/BT coexistence jitter does not cause immediate underruns.
+  for (int i = 0; i < 25 && !this->stop_requested_.load(std::memory_order_acquire); ++i) {
     if (!this->parent_->is_streaming() || ring.available() >= this->parent_->target_buffer_bytes() / 2U) {
       break;
     }

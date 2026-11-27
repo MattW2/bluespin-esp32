@@ -5,9 +5,10 @@ psram:
   speed: 80MHz
 
 logger:
-  level: INFO
+  level: WARN
 
 api:
+  reboot_timeout: 0s
   encryption:
     key: !secret api_encryption_key
 
@@ -17,7 +18,7 @@ ota:
   - platform: web_server
 
 debug:
-  update_interval: 15s
+  update_interval: 30s
 
 # Lightweight offline-capable on-device dashboard & live debug log viewer at http://<device-ip>/
 web_server:
@@ -43,7 +44,7 @@ bt_a2dp_sink:
   pairing_window: 120s
   max_bonded_devices: 8
   takeover: true
-  buffer_duration: 300ms
+  buffer_duration: 500ms
   on_stream_started:
     - sendspin.source.set_signal:
         id: ss
@@ -64,9 +65,9 @@ sendspin:
   id: ss
   manufacturer: "BlueSpin"
   model: "BlueSpin-esp32"
-  task_stack_in_psram: true
+  task_stack_in_psram: false
   source:
-    task_stack_in_psram: true
+    task_stack_in_psram: false
     microphone:
       microphone: bt_mic
       bits_per_sample: 16

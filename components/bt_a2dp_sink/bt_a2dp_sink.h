@@ -253,6 +253,7 @@ class BtA2dpSink : public Component {
   BtEventRing<32> events_;
 
   uint32_t last_diag_ms_{0};
+  float last_published_buffer_fill_{-1.0f};
   uint32_t last_published_underruns_{UINT32_MAX};
   uint32_t last_published_overflows_{UINT32_MAX};
 

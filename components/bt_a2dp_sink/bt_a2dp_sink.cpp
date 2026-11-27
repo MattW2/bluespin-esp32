@@ -3,6 +3,7 @@
 #include "esphome/core/application.h"
 #include "esphome/core/log.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -216,7 +217,7 @@ void BtA2dpSink::loop() {
 #endif
 
   const uint32_t now_ms = millis();
-  if (now_ms - this->last_diag_ms_ >= 2000U) {
+  if (now_ms - this->last_diag_ms_ >= 5000U) {
     this->last_diag_ms_ = now_ms;
     this->publish_diagnostics_();
   }
@@ -401,7 +402,11 @@ void BtA2dpSink::set_streaming_state_(bool streaming) {
 void BtA2dpSink::publish_diagnostics_() {
 #ifdef USE_SENSOR
   if (this->buffer_fill_sensor_ != nullptr) {
-    this->buffer_fill_sensor_->publish_state(this->ring_.fill_percent());
+    const float fill = this->ring_.fill_percent();
+    if (this->last_published_buffer_fill_ < 0.0f || std::fabs(fill - this->last_published_buffer_fill_) >= 1.0f) {
+      this->last_published_buffer_fill_ = fill;
+      this->buffer_fill_sensor_->publish_state(fill);
+    }
   }
   const uint32_t underruns = this->ring_.underrun_count();
   if (this->underruns_sensor_ != nullptr && underruns != this->last_published_underruns_) {

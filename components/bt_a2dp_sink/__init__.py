@@ -179,10 +179,12 @@ async def to_code(config: ConfigType) -> None:
         "CONFIG_BT_ACL_CONNECTIONS": 2,
         "CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST": True,
         "CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY": True,
-        "CONFIG_ESP_COEX_SW_COEXIST_ENABLE": True,
     }
     for key, val in sdkconfig_options.items():
         esp32.add_idf_sdkconfig_option(key, val)
+
+    if "wifi" in CORE.config:
+        esp32.request_software_coexistence()
 
     cg.add_define("USE_BT_A2DP_SINK")
 
