@@ -1,5 +1,37 @@
 # Shared BlueSpin-esp32 package — included by both local CLI configs and ESPHome Builder GitHub configs.
 
+esphome:
+  on_boot:
+    priority: 600
+    then:
+      - lambda: |-
+          // Configure Sendspin source@v1 for 48 kHz stereo Opus (128 kbps CELT low-delay).
+          // Cuts Wi-Fi upload traffic 11x vs uncompressed PCM (16 KB/s vs 176 KB/s) so Classic BT
+          // A2DP RX and Wi-Fi TX coexist cleanly on the ESP32's shared 2.4 GHz radio.
+          // sendspin-cpp automatically falls back to PCM if a server does not advertise opus.
+          sendspin::SourceRoleConfig cfg{};
+          cfg.sample_rate = 48000;
+          cfg.chunk_duration_ms = 20;
+          cfg.capture_buffer_ms = 1000;
+          cfg.opus_bitrate = 128000;
+          cfg.opus_complexity = 2;
+          cfg.codec = sendspin::SendspinCodecFormat::OPUS;
+          cfg.channels = 2;
+          cfg.bit_depth = 16;
+          cfg.psram_stack = false;
+          id(ss).set_source_config(cfg);
+
+esp32:
+  framework:
+    sdkconfig_options:
+      # Optimize for size (-Os) so BT Classic + Sendspin + Opus + OLED fit comfortably in 4MB Flash
+      CONFIG_COMPILER_OPTIMIZATION_SIZE: "y"
+      CONFIG_COMPILER_OPTIMIZATION_PERF: "n"
+
+network:
+  # Cap TCP send buffer to 16 KB (1 full second of 128 kbps Opus) to keep Internal DRAM free
+  tcp_send_buffer: 16384
+
 psram:
   mode: quad
   speed: 80MHz

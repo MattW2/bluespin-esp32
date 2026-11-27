@@ -150,7 +150,7 @@ void BtA2dpSink::setup() {
   esp_log_level_set("sendspin.source_task", ESP_LOG_ERROR);
 
 #if CONFIG_ESP_COEX_SW_COEXIST_ENABLE
-  esp_coex_preference_set(ESP_COEX_PREFER_BALANCE);
+  esp_coex_preference_set(ESP_COEX_PREFER_BT);
 #endif
 
   // Must be set after profile init so A2DP/AVRCP do not overwrite the Loudspeaker CoD needed by Google Nest Hub.
@@ -566,7 +566,8 @@ void BtA2dpSink::process_event_(const BtEvent &ev) {
         if (rate == kOutputSampleRate) {
           std::snprintf(desc, sizeof(desc), "SBC %.1f kHz", static_cast<double>(rate) / 1000.0);
         } else {
-          std::snprintf(desc, sizeof(desc), "SBC %.1f kHz -> 44.1 kHz", static_cast<double>(rate) / 1000.0);
+          std::snprintf(desc, sizeof(desc), "SBC %.1f -> %.1f kHz", static_cast<double>(rate) / 1000.0,
+                        static_cast<double>(kOutputSampleRate) / 1000.0);
         }
         this->codec_ts_->publish_state(desc);
       }

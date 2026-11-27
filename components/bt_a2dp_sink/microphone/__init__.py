@@ -21,7 +21,7 @@ BtA2dpMicrophone = bt_a2dp_sink_ns.class_(
     cg.Component,
 )
 
-FIXED_SAMPLE_RATE = 44100
+FIXED_SAMPLE_RATE = 48000
 FIXED_BITS_PER_SAMPLE = 16
 FIXED_CHANNELS = 2
 
