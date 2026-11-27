@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <vector>
 
 #ifdef USE_ESP32
 #include <freertos/FreeRTOS.h>
@@ -47,6 +48,7 @@ class BtA2dpMicrophone : public microphone::Microphone, public Component, public
 #endif
 
   bool task_stack_in_psram_{true};
+  std::vector<uint8_t> chunk_buf_;
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> task_running_{false};
 };

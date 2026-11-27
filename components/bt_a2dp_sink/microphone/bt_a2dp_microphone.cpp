@@ -13,12 +13,13 @@
 namespace esphome::bt_a2dp_sink {
 
 static const char *const TAG = "bt_a2dp.microphone";
-static constexpr size_t kCaptureTaskStackBytes = 4096;
+static constexpr size_t kCaptureTaskStackBytes = 6144;
 static constexpr UBaseType_t kCaptureTaskPriority = 4;  // Above Sendspin source task (3), below protocol task (5)
 static constexpr size_t kDriftDropBytes = 44 * kBytesPerStereoFrame;  // 1 ms (44 frames) shed on clock drift
 
 void BtA2dpMicrophone::setup() {
   this->audio_stream_info_ = audio::AudioStreamInfo(16, 2, kOutputSampleRate);
+  this->chunk_buf_.resize(kChunkBytes, 0);
   this->state_ = microphone::STATE_STOPPED;
 }
 
@@ -95,7 +96,7 @@ void BtA2dpMicrophone::capture_task_entry_(void *arg) {
 void BtA2dpMicrophone::capture_task_loop_() {
   this->task_running_.store(true, std::memory_order_release);
 
-  uint8_t chunk[kChunkBytes];
+  uint8_t *chunk = this->chunk_buf_.data();
   auto &ring = this->parent_->ring();
   const size_t high_watermark = std::max<size_t>(this->parent_->target_buffer_bytes() * 2U, kChunkBytes * 4U);
 
