@@ -7,7 +7,7 @@ from esphome.const import (
     CONF_ID,
     CONF_VOLUME,
 )
-from esphome.core import CORE, CoroPriority, TimePeriod, coroutine_with_priority
+from esphome.core import CORE, TimePeriod
 import esphome.final_validate as fv
 from esphome.types import ConfigType
 
@@ -185,13 +185,6 @@ async def to_code(config: ConfigType) -> None:
 
     if "wifi" in CORE.config:
         esp32.request_software_coexistence()
-
-    if "sendspin" in CORE.config:
-        @coroutine_with_priority(CoroPriority.FINAL)
-        async def _enable_sendspin_opus() -> None:
-            esp32.add_idf_sdkconfig_option("CONFIG_SENDSPIN_ENABLE_OPUS", True)
-
-        CORE.add_job(_enable_sendspin_opus)
 
     cg.add_define("USE_BT_A2DP_SINK")
 

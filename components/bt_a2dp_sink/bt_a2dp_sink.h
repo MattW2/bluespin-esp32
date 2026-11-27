@@ -45,7 +45,7 @@
 
 namespace esphome::bt_a2dp_sink {
 
-inline constexpr uint32_t kOutputSampleRate = 48000;
+inline constexpr uint32_t kOutputSampleRate = 44100;
 inline constexpr size_t kBytesPerStereoFrame = 4;  // 16-bit * 2 channels
 
 enum class BtEventType : uint8_t {
