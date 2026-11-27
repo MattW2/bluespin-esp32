@@ -47,8 +47,9 @@ class BtA2dpMicrophone : public microphone::Microphone, public Component, public
   TaskHandle_t task_handle_{nullptr};
 #endif
 
-  bool task_stack_in_psram_{true};
+  bool task_stack_in_psram_{false};
   std::vector<uint8_t> chunk_buf_;
+  std::vector<uint8_t> raw_buf_;
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> task_running_{false};
 };

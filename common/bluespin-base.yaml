@@ -25,7 +25,7 @@ web_server:
   port: 80
   version: 3
   local: true
-  log: true
+  log: false
   sorting_groups:
     - id: grp_bt
       name: "Bluetooth & Pairing"
@@ -44,7 +44,7 @@ bt_a2dp_sink:
   pairing_window: 120s
   max_bonded_devices: 8
   takeover: true
-  buffer_duration: 500ms
+  buffer_duration: 600ms
   on_stream_started:
     - sendspin.source.set_signal:
         id: ss
@@ -58,7 +58,7 @@ microphone:
   - platform: bt_a2dp_sink
     id: bt_mic
     bt_a2dp_sink_id: bt
-    task_stack_in_psram: true
+    task_stack_in_psram: false
 
 # Stock ESPHome Sendspin hub in source@v1 mode (Noise KKpsk2 pairing via 6-digit code)
 sendspin:

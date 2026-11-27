@@ -40,7 +40,7 @@ external_components:
       url: https://github.com/MattW2/bluespin-esp32
       ref: main
     components: [bt_a2dp_sink]
-    refresh: 1d
+    refresh: 0s
 
 packages:
   base:
@@ -49,7 +49,7 @@ packages:
     files:
       - common/bluespin-base.yaml
       - common/bluespin-oled-ssd1306.yaml
-    refresh: 1d
+    refresh: 0s
 
 wifi:
   ssid: !secret wifi_ssid

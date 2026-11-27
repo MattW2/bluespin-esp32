@@ -8,8 +8,12 @@
 #include <cstring>
 
 #ifdef USE_ESP32
+#include <esp_log.h>
 #include <esp_timer.h>
 #include <nvs_flash.h>
+#if CONFIG_ESP_COEX_SW_COEXIST_ENABLE
+#include <esp_coexist.h>
+#endif
 #endif
 
 namespace esphome::bt_a2dp_sink {
@@ -141,6 +145,13 @@ void BtA2dpSink::setup() {
     this->mark_failed();
     return;
   }
+
+  // Prevent sendspin.source_task (2048-byte stack) from entering ESPHome's heavy vprintf logger hook on transient WARNs.
+  esp_log_level_set("sendspin.source_task", ESP_LOG_ERROR);
+
+#if CONFIG_ESP_COEX_SW_COEXIST_ENABLE
+  esp_coex_preference_set(ESP_COEX_PREFER_BALANCE);
+#endif
 
   // Must be set after profile init so A2DP/AVRCP do not overwrite the Loudspeaker CoD needed by Google Nest Hub.
   this->apply_loudspeaker_cod_();
@@ -387,6 +398,24 @@ void BtA2dpSink::set_streaming_state_(bool streaming) {
     return;
   }
   ESP_LOGI(TAG, "Bluetooth audio stream %s", streaming ? "started" : "stopped");
+#ifdef USE_ESP32
+  if (this->stack_ready_) {
+    this->update_scan_mode_();
+  }
+#if CONFIG_ESP_COEX_SW_COEXIST_ENABLE
+  if (streaming) {
+    esp_coex_status_bit_clear(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_PAUSED);
+    esp_coex_status_bit_set(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_STREAMING);
+  } else {
+    esp_coex_status_bit_clear(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_STREAMING);
+    if (this->is_connected()) {
+      esp_coex_status_bit_set(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_PAUSED);
+    } else {
+      esp_coex_status_bit_clear(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_PAUSED);
+    }
+  }
+#endif
+#endif
 #ifdef USE_BINARY_SENSOR
   if (this->streaming_bs_ != nullptr) {
     this->streaming_bs_->publish_state(streaming);
@@ -456,6 +485,11 @@ void BtA2dpSink::process_event_(const BtEvent &ev) {
 #ifdef USE_ESP32
       esp_bt_gap_read_remote_name(const_cast<uint8_t *>(ev.bda));
       this->update_scan_mode_();
+#if CONFIG_ESP_COEX_SW_COEXIST_ENABLE
+      if (!this->is_streaming()) {
+        esp_coex_status_bit_set(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_PAUSED);
+      }
+#endif
 #endif
 
 #ifdef USE_BINARY_SENSOR
@@ -489,6 +523,9 @@ void BtA2dpSink::process_event_(const BtEvent &ev) {
 
 #ifdef USE_ESP32
       this->update_scan_mode_();
+#if CONFIG_ESP_COEX_SW_COEXIST_ENABLE
+      esp_coex_status_bit_clear(ESP_COEX_ST_TYPE_BT, ESP_COEX_BT_ST_A2DP_STREAMING | ESP_COEX_BT_ST_A2DP_PAUSED);
+#endif
 #endif
 
 #ifdef USE_BINARY_SENSOR
@@ -621,11 +658,12 @@ void BtA2dpSink::update_scan_mode_() {
   const bool pairing = this->pairing_open_.load(std::memory_order_acquire);
   const bool allow_conn = this->allow_device_connect_.load(std::memory_order_acquire);
   const bool currently_conn = this->connected_.load(std::memory_order_acquire);
+  const bool streaming = this->streaming_.load(std::memory_order_acquire);
 
-  // Stay connectable when:
-  // - pairing window is open, OR
-  // - allow_device_connect is true AND (not currently connected, OR takeover is enabled so a 2nd bonded device can connect).
-  const bool connectable = pairing || (allow_conn && (!currently_conn || this->takeover_enabled_));
+  // Disable Page Scan while actively streaming audio so Classic BT Page Scan does not seize
+  // the shared 2.4 GHz radio every 1.28 s and starve Sendspin Wi-Fi TX / A2DP RX.
+  // When paused/idle (or when the pairing window is opened), connectability resumes for takeover.
+  const bool connectable = pairing || (allow_conn && (!currently_conn || (this->takeover_enabled_ && !streaming)));
   const esp_bt_connection_mode_t c_mode = connectable ? ESP_BT_CONNECTABLE : ESP_BT_NON_CONNECTABLE;
   const esp_bt_discovery_mode_t d_mode = pairing ? ESP_BT_GENERAL_DISCOVERABLE : ESP_BT_NON_DISCOVERABLE;
 
