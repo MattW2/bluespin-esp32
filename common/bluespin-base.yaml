@@ -47,16 +47,15 @@ api:
 ota:
   - platform: esphome
     password: !secret ota_password
-  - platform: web_server
 
 debug:
   update_interval: 30s
 
-# Lightweight offline-capable on-device dashboard & live debug log viewer at http://<device-ip>/
+# Lightweight on-device dashboard at http://<device-ip>/
 web_server:
   port: 80
   version: 3
-  local: true
+  local: false
   log: false
   sorting_groups:
     - id: grp_bt

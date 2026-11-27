@@ -24,6 +24,7 @@ font:
   - file: "gfonts://Roboto@700"
     id: oled_font_lg
     size: 22
+    glyphs: "0123456789 -"
 
 display:
   - platform: ssd1306_i2c
