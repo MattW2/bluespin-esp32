@@ -14,7 +14,7 @@ import aiosendspin.client.connection as _ss_conn
 from aiosendspin.models.core import ServerCommandPayload
 from aiosendspin.models.player import SupportedAudioFormat
 from aiosendspin.models.source import ClientHelloSourceFeatures, ClientHelloSourceSupport
-from aiosendspin.models.types import AudioCodec, GoodbyeReason, Roles, SignalState
+from aiosendspin.models.types import Activity, AudioCodec, GoodbyeReason, Roles, SignalState
 from aiosendspin.noise import FileClientPairingStore, Identity, b64url_decode
 
 from .config import AppStatus, BlueSpinConfig
@@ -42,6 +42,26 @@ if hasattr(_ss_conn, "SendspinConnection") and hasattr(
         return msg
 
     _ss_conn.SendspinConnection._build_client_hello = _compat_build_client_hello  # type: ignore[method-assign]
+
+# Music Assistant 2.10.x sends server/activate with active_roles=['source@v1']
+# but activities=[] (predating Activity.PLAYBACK). Ensure Activity.PLAYBACK is
+# present when roles are active so source/command: start is accepted.
+if hasattr(_ss_conn, "SendspinConnection") and hasattr(
+    _ss_conn.SendspinConnection, "_apply_activation"
+):
+    _orig_apply_activation = _ss_conn.SendspinConnection._apply_activation
+
+    async def _compat_apply_activation(self: object, payload: object):  # type: ignore[no-untyped-def]
+        reason = await _orig_apply_activation(self, payload)
+        if (
+            reason is None
+            and getattr(self, "_active_roles", None)
+            and Activity.PLAYBACK not in self._activities  # type: ignore[attr-defined]
+        ):
+            self._activities.append(Activity.PLAYBACK)  # type: ignore[attr-defined]
+        return reason
+
+    _ss_conn.SendspinConnection._apply_activation = _compat_apply_activation  # type: ignore[method-assign]
 
 _CODEC_MAP = {
     "opus": AudioCodec.OPUS,
