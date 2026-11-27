@@ -1,11 +1,13 @@
 [Unit]
 Description=BlueSpin Pi (Bluetooth A2DP Sink to Sendspin Source)
-After=network-online.target bluetooth.target sound.target
-Wants=network-online.target bluetooth.target
+After=network-online.target bluetooth.target sound.target user@__SERVICE_UID__.service
+Wants=network-online.target bluetooth.target user@__SERVICE_UID__.service
 
 [Service]
 Type=simple
-User=root
+User=__SERVICE_USER__
+Environment=XDG_RUNTIME_DIR=/run/user/__SERVICE_UID__
+Environment=PULSE_SERVER=unix:/run/user/__SERVICE_UID__/pulse/native
 EnvironmentFile=-/etc/bluespin/bluespin.env
 ExecStart=/opt/bluespin/venv/bin/python -m bluespin_pi
 Restart=always

@@ -1,7 +1,5 @@
 """BlueZ D-Bus A2DP Sink manager with pinless SSP Just Works pairing."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Awaitable, Callable
 import contextlib
@@ -41,7 +39,7 @@ except (ImportError, AttributeError):  # pragma: no cover - non-Linux dev enviro
 class _PinlessAgent(ServiceInterface):
     """BlueZ Agent1 implementing NoInputNoOutput SSP gated by the pairing window."""
 
-    def __init__(self, manager: BluetoothManager) -> None:
+    def __init__(self, manager: "BluetoothManager") -> None:
         super().__init__("org.bluez.Agent1")
         self._mgr = manager
 

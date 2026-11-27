@@ -34,6 +34,9 @@ if command -v raspi-config >/dev/null 2>&1; then
   raspi-config nonint do_i2c 0 || true
 fi
 
+echo "==> Unblocking Bluetooth RFKILL if set..."
+rfkill unblock bluetooth || true
+
 echo "==> Configuring BlueZ for A2DP Sink + Just Works SSP..."
 mkdir -p /etc/bluetooth
 cat >/etc/bluetooth/bluespin-override.conf <<'EOF'
@@ -46,6 +49,24 @@ EOF
 if ! grep -q "Class = 0x200414" /etc/bluetooth/main.conf 2>/dev/null; then
   sed -i 's/^#\?Class =.*/Class = 0x200414/' /etc/bluetooth/main.conf || true
 fi
+
+echo "==> Configuring WirePlumber for headless Bluetooth A2DP Sink..."
+mkdir -p /etc/wireplumber/wireplumber.conf.d
+cat >/etc/wireplumber/wireplumber.conf.d/50-bluespin-bluez.conf <<'EOF'
+# Managed by BlueSpin Pi
+wireplumber.profiles = {
+  main = {
+    monitor.bluez.seat-monitoring = disabled
+  }
+}
+
+monitor.bluez.properties = {
+  bluez5.roles = [ a2dp_sink ]
+  bluez5.enable-sbc-xq = true
+  bluez5.enable-msbc = false
+  bluez5.enable-hw-volume = true
+}
+EOF
 
 echo "==> Installing BlueSpin Pi into ${INSTALL_DIR}..."
 mkdir -p "${INSTALL_DIR}" "${DATA_DIR}" "${ENV_DIR}"
@@ -71,7 +92,22 @@ EOF
 fi
 
 echo "==> Installing and starting bluespin.service..."
-cp "${PI_DIR}/systemd/bluespin.service" /etc/systemd/system/bluespin.service
+SERVICE_USER="${SUDO_USER:-pi}"
+if id "${SERVICE_USER}" >/dev/null 2>&1; then
+  SERVICE_UID="$(id -u "${SERVICE_USER}")"
+  loginctl enable-linger "${SERVICE_USER}" || true
+  usermod -aG bluetooth,audio,i2c "${SERVICE_USER}" 2>/dev/null || true
+  systemctl start "user@${SERVICE_UID}.service" || true
+  systemctl --user -M "${SERVICE_USER}@" daemon-reload || true
+  systemctl --user -M "${SERVICE_USER}@" restart pipewire.socket pipewire-pulse.socket pipewire.service pipewire-pulse.service wireplumber.service || true
+else
+  SERVICE_USER="root"
+  SERVICE_UID="0"
+fi
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
+
+sed -e "s|__SERVICE_USER__|${SERVICE_USER}|g" -e "s|__SERVICE_UID__|${SERVICE_UID}|g" \
+  "${PI_DIR}/systemd/bluespin.service" >/etc/systemd/system/bluespin.service
 systemctl daemon-reload
 systemctl enable bluetooth bluespin
 systemctl restart bluetooth

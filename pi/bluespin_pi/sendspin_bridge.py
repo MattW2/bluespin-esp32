@@ -6,9 +6,11 @@ import asyncio
 import contextlib
 import logging
 from pathlib import Path
+import re
 
 from aiohttp import web
 from aiosendspin.client import ClientListener, PairingSupport, SendspinClient, SourceCapture
+import aiosendspin.client.connection as _ss_conn
 from aiosendspin.models.core import ServerCommandPayload
 from aiosendspin.models.player import SupportedAudioFormat
 from aiosendspin.models.types import AudioCodec, GoodbyeReason, Roles, SignalState
@@ -17,6 +19,11 @@ from aiosendspin.noise import FileClientPairingStore, Identity, b64url_decode
 from .config import AppStatus, BlueSpinConfig
 
 logger = logging.getLogger(__name__)
+
+# Music Assistant 2.10.x sends non-43-char group_id values in group/update;
+# relax aiosendspin 11.0.0's strict regex so older servers can stay connected.
+if hasattr(_ss_conn, "_GROUP_ID_RE"):
+    _ss_conn._GROUP_ID_RE = re.compile(r".+")
 
 _CODEC_MAP = {
     "opus": AudioCodec.OPUS,
